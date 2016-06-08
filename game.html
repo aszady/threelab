@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <title>A game</title>
+  <script type="text/javascript" src="libs/three.js"></script>
+  <script type="text/javascript" src="libs/jquery-1.9.0.js"></script>
+  <script type="text/javascript" src="libs/THREEx.KeyboardState.js"></script>
+  
+  <script type="text/javascript" src="maps.js"></script>
+  <script type="text/javascript" src="MapLoader.js"></script>
+  <script type="text/javascript" src="SceneBuilder.js"></script>
+  <script type="text/javascript" src="Map.js"></script>
+  <script type="text/javascript" src="PlayerControls.js"></script>
+  <style>
+    body {
+      /* set margin to 0 and overflow to hidden, to go fullscreen */
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Div which will hold the Output -->
+<div id="WebGL-output">
+</div>
+
+<script type="text/javascript">
+  
+var mapLoader = new MapLoader(maps);
+var sceneBuilder = new SceneBuilder();
+var keyboard = new THREEx.KeyboardState(); 
+
+var renderer = new THREE.WebGLRenderer({antialias: true});
+
+renderer.setClearColor(new THREE.Color(0x002233, 1.0));  //background color and opacity
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMapEnabled = true;   // false is default
+renderer.shadowMapType = THREE.PCFSoftShadowMap;
+
+document.getElementById("WebGL-output").appendChild(renderer.domElement);
+var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+
+var levelId = 0;
+var map, controls, scene;
+function loadLevel() {  
+  document.title = levelId + ' loading ...';
+  map = mapLoader.load(levelId);
+  controls = new PlayerControls(map.getPlayers());
+  scene = sceneBuilder.build(map, controls);
+  document.title = levelId + ' level';
+}
+loadLevel(levelId);
+
+function render() {
+  var zoomOut = keyboard.pressed('space');
+  for (var i = 0; i < controls.views.length; ++i)
+    controls.views[i].zoomOut.value = zoomOut ? 1 : 0;
+    
+  if (!controls.isMoving()) {
+    if (keyboard.pressed('q') && !keyboard.pressed('e'))
+      controls.rotate(-1);
+    else if (keyboard.pressed('e') && !keyboard.pressed('q'))
+      controls.rotate(1);
+      
+    else if (keyboard.pressed('w') && !keyboard.pressed('s'))
+      controls.move(1, 0, map.getCollisionChecker());
+    else if (keyboard.pressed('s') && !keyboard.pressed('w'))
+      controls.move(-1, 0, map.getCollisionChecker());
+      
+    else if (keyboard.pressed('a') && !keyboard.pressed('d'))
+      controls.move(0, -1, map.getCollisionChecker());
+    else if (keyboard.pressed('d') && !keyboard.pressed('a'))
+      controls.move(0, 1, map.getCollisionChecker());
+      
+    controls.cleanupDuplicateViews();
+  }    
+  
+  for (var i = 0; i < controls.views.length; ++i) {
+    controls.views[i].updateObjects();
+    controls.views[i].updateRenderer(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    renderer.render(scene, controls.views[i].camera);
+  }      
+    
+  if (controls.allEscaped(map.getEscapeChecker())) {    
+    ++levelId;
+    loadLevel();
+  }
+  for (var i = 1; i < 10; ++i)
+   if (keyboard.pressed(''+i))
+   { levelId = i; loadLevel(i); }
+  
+  requestAnimationFrame(render);
+}
+
+render();
+
+</script>
+</body>
+</html>
